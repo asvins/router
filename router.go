@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 )
@@ -79,7 +80,13 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 		route.handler(w, rq)
 		return
 	}
-	match, _ := regexp.MatchString(servingFileRegex, rq.URL.Path)
+	match, err := regexp.MatchString(servingFileRegex, rq.URL.Path)
+
+	if err != nil {
+		//Shouldn't get here...
+		log.Fatal(err)
+	}
+
 	if match {
 		http.ServeFile(w, rq, rq.URL.Path[1:])
 		return
