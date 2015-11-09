@@ -14,7 +14,7 @@ type Http interface {
  */
 // BadRequestStruct http error
 type BadRequestStruct struct {
-	Msg string
+	Msg string `json:"message"`
 }
 
 // BadRequest returns a newly allocated BadRequestStruct
@@ -37,7 +37,7 @@ func (e BadRequestStruct) Code() int {
  */
 // UnauthorizedStruct http error
 type UnauthorizedStruct struct {
-	Msg string
+	Msg string `json:"message"`
 }
 
 // Unauthorizes returns a newly allocated UnauthorizedStruct
@@ -60,7 +60,7 @@ func (e UnauthorizedStruct) Code() int {
  */
 // NotFoundStruct http error
 type NotFoundStruct struct {
-	Msg string
+	Msg string `json:"message"`
 }
 
 // NotFound returns a newly allocated NotFoundStruct

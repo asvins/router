@@ -81,10 +81,10 @@ func (r *Router) AddBaseInterceptor(path string, interceptor Interceptor) {
 	r.baseInterceptors[path] = append(r.baseInterceptors[path], interceptor)
 }
 
-// AddCustomRoute adds a new route with  router.Handler as handler
+// Handle adds a new route with  router.Handler as handler
 // If you choose to use this method, DON'T WRITE INTO THE RESPONSE WRITER IF YOU RETURN AN ERROR
 //	if you Return a router.error.Http, the router will automatically return the error as a json on the response
-func (r *Router) AddCustomRoute(path string, method string, handler Handler, interceptors []Interceptor) {
+func (r *Router) Handle(path string, method string, handler Handler, interceptors []Interceptor) {
 	switch method {
 	case GET:
 		r.doAddRoute(GET, path, handler, interceptors)
@@ -92,11 +92,9 @@ func (r *Router) AddCustomRoute(path string, method string, handler Handler, int
 	case PUT:
 		r.doAddRoute(PUT, path, handler, interceptors)
 		break
-
 	case DELETE:
 		r.doAddRoute(DELETE, path, handler, interceptors)
 		break
-
 	case POST:
 		r.doAddRoute(POST, path, handler, interceptors)
 		break
@@ -105,7 +103,7 @@ func (r *Router) AddCustomRoute(path string, method string, handler Handler, int
 
 //AddRoute adds a new route using path method, handler and a variadic number of interceptors
 func (r *Router) AddRoute(path string, method string, handler http.HandlerFunc, interceptors ...Interceptor) {
-	r.AddCustomRoute(path, method, wrap(handler), interceptors)
+	r.Handle(path, method, wrap(handler), interceptors)
 }
 
 //doAddRoute will add the specific route using method and string
