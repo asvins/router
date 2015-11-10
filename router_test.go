@@ -1,7 +1,6 @@
 package router
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	routerErrors "github.com/asvins/router/errors"
 )
 
 /*
@@ -32,7 +33,7 @@ var (
  */
 type indexInterceptor struct{}
 
-func (t indexInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t indexInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[indexInterceptor]")
 	indexInterceptorChan <- 1
 	return nil
@@ -40,7 +41,7 @@ func (t indexInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) err
 
 type indexInterceptor2 struct{}
 
-func (t indexInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t indexInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[indexInterceptor2]")
 	indexInterceptorChan <- 1
 	return nil
@@ -48,7 +49,7 @@ func (t indexInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) er
 
 type apiInterceptor struct{}
 
-func (t apiInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t apiInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[apiInterceptor]")
 	apiInterceptorChan <- 1
 	return nil
@@ -56,7 +57,7 @@ func (t apiInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) error
 
 type apiInterceptor2 struct{}
 
-func (t apiInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t apiInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[apiInterceptor2]")
 	apiInterceptorChan <- 1
 	return nil
@@ -64,7 +65,7 @@ func (t apiInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) erro
 
 type apiInterceptor3 struct{}
 
-func (t apiInterceptor3) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t apiInterceptor3) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[apiInterceptor3]")
 	apiInterceptorChan <- 1
 	return nil
@@ -72,17 +73,16 @@ func (t apiInterceptor3) Intercept(rw http.ResponseWriter, r *http.Request) erro
 
 type failInterceptor struct{}
 
-func (t failInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t failInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[failInterceptor] - will return an error!")
-	err := errors.New("failInterceptor error returned")
-	fmt.Fprint(rw, err.Error())
+	err := routerErrors.BadRequest("Bad request MOCK")
 	failInterceptorChan <- 1
 	return err
 }
 
 type failInterceptor2 struct{}
 
-func (t failInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t failInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[failInterceptor2] - should not be called")
 	failInterceptorChan <- 1
 	return nil
@@ -94,7 +94,7 @@ func (t failInterceptor2) Intercept(rw http.ResponseWriter, r *http.Request) err
 
 type apiUsersNameInterceptor struct{}
 
-func (t apiUsersNameInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) error {
+func (t apiUsersNameInterceptor) Intercept(rw http.ResponseWriter, r *http.Request) routerErrors.Http {
 	fmt.Println("[apiUsersNameInterceptor]")
 	apiUsersNameInterceptorChan <- 1
 	return nil
@@ -122,6 +122,14 @@ func init() {
 		fmt.Fprint(w, "Request made to '/willfail/now'")
 	})
 
+	r.Handle("/handler/unauthorized", GET, func(w http.ResponseWriter, apiRouter *http.Request) routerErrors.Http {
+		return routerErrors.Unauthorized("You shall not pass")
+	}, []Interceptor{})
+
+	r.Handle("/handler/badrequest", GET, func(w http.ResponseWriter, apiRouter *http.Request) routerErrors.Http {
+		return routerErrors.BadRequest("That's a bad request")
+	}, []Interceptor{})
+
 	r.AddBaseInterceptor("/api", &apiInterceptor{})
 	r.AddBaseInterceptor("/api", &apiInterceptor2{})
 	r.AddBaseInterceptor("/api", &apiInterceptor3{})
@@ -135,7 +143,7 @@ func init() {
 
 func get(path string) (*http.Response, error) {
 	reader := strings.NewReader(``)
-	request, err := http.NewRequest("GET", endpointURL+path, reader)
+	request, err := http.NewRequest(GET, endpointURL+path, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -251,4 +259,44 @@ func TestBaseRouteError(t *testing.T) {
 	}
 
 	fmt.Println("-- TestBaseRouteError end --\n")
+}
+
+func TestHandleUnauthorized(t *testing.T) {
+	fmt.Println("-- TestHandleUnauthorized start --")
+	response, err := get("/handler/unauthorized")
+	if err != nil {
+		fmt.Println(err)
+		t.Error(err)
+	}
+
+	defer response.Body.Close()
+	body, _ := ioutil.ReadAll(response.Body)
+	fmt.Println(string(body))
+	fmt.Println("StatusCode:", response.StatusCode)
+
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Error("Status Code should be", response.StatusCode)
+	}
+
+	fmt.Println("-- TestHandleUnauthorized end --\n")
+}
+
+func TestHandleBadRequest(t *testing.T) {
+	fmt.Println("-- TestHandleBadRequest start --")
+	response, err := get("/handler/badrequest")
+	if err != nil {
+		fmt.Println(err)
+		t.Error(err)
+	}
+
+	defer response.Body.Close()
+	body, _ := ioutil.ReadAll(response.Body)
+	fmt.Println(string(body))
+	fmt.Println("StatusCode:", response.StatusCode)
+
+	if response.StatusCode != http.StatusBadRequest {
+		t.Error("Status Code should be", response.StatusCode)
+	}
+
+	fmt.Println("-- TestHandleBadRequest end --\n")
 }
