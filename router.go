@@ -15,6 +15,11 @@ import (
 *	This router implements only GET POST and PUT methods.
 * interceptors can be added to specific routes or to base paths
  */
+var rend *render.Render
+
+func init() {
+	rend = render.New()
+}
 
 //HTTP METHODS
 const (
@@ -154,6 +159,18 @@ func (r *Router) executeBaseInterceptors(path string, w http.ResponseWriter, rq 
 	return nil
 }
 
+// writeError writes the errors.Http into a JSON with the correct status code.
+// Return:
+//	- true if did wrote an error(err argument != nil)
+//	- false if didn't
+func writeError(err errors.Http, w http.ResponseWriter) bool {
+	if err != nil {
+		rend.JSON(w, err.Code(), err)
+		return true
+	}
+	return false
+}
+
 // ServeHTTP Implements interface http.Handler
 // It will behave like this:
 //	i) base interceptors execution
@@ -167,22 +184,18 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	route := r.routes[rq.URL.Path+rq.Method]
 	if route != nil {
 		err = r.executeBaseInterceptors(rq.URL.Path, w, rq) //base path interceptors
-		if err != nil {
-			rend := render.New()
-			rend.JSON(w, err.Code(), err)
+		if writeError(err, w) {
 			return
 		}
+
 		err = route.executeInterceptors(w, rq) // route specific interceptors
-		if err != nil {
-			rend := render.New()
-			rend.JSON(w, err.Code(), err)
+
+		if writeError(err, w) {
 			return
 		}
 
 		err = route.handler(w, rq) // route handler
-		if err != nil {
-			rend := render.New()
-			rend.JSON(w, err.Code(), err)
+		if writeError(err, w) {
 			return
 		}
 
