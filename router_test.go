@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 *	Common variables
  */
 var (
+	r                            *Router
 	server                       *httptest.Server
 	endpointURL                  string
 	indexInterceptorCount        int = 2
@@ -104,29 +106,29 @@ func (t apiUsersNameInterceptor) Intercept(rw http.ResponseWriter, r *http.Reque
 *	Init function. Will create a mocked server for testing
  */
 func init() {
-	r := NewRouter()
+	r = NewRouter()
 
-	r.AddRoute("/", GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/", GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/'")
 	}, &indexInterceptor{}, &indexInterceptor2{})
 
-	r.AddRoute("/api/users", GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/api/users", GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/api/users'")
 	})
 
-	r.AddRoute("/api/users/name", GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/api/users/name", GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/api/users/name'")
 	})
 
-	r.AddRoute("/willfail/now", GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/willfail/now", GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/willfail/now'")
 	})
 
-	r.Handle("/handler/unauthorized", GET, func(w http.ResponseWriter, apiRouter *http.Request) routerErrors.Http {
+	r.Handle("/handler/unauthorized", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
 		return routerErrors.Unauthorized("You shall not pass")
 	}, []Interceptor{})
 
-	r.Handle("/handler/badrequest", GET, func(w http.ResponseWriter, apiRouter *http.Request) routerErrors.Http {
+	r.Handle("/handler/badrequest", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
 		return routerErrors.BadRequest("That's a bad request")
 	}, []Interceptor{})
 
@@ -276,7 +278,7 @@ func TestHandleUnauthorized(t *testing.T) {
 	fmt.Println("StatusCode:", response.StatusCode)
 
 	if response.StatusCode != http.StatusUnauthorized {
-		t.Error("Status Code should be", response.StatusCode)
+		t.Error("Status Code should be", http.StatusUnauthorized, " Got", response.StatusCode)
 	}
 
 	fmt.Println("-- TestHandleUnauthorized end --\n")
@@ -296,8 +298,51 @@ func TestHandleBadRequest(t *testing.T) {
 	fmt.Println("StatusCode:", response.StatusCode)
 
 	if response.StatusCode != http.StatusBadRequest {
-		t.Error("Status Code should be", response.StatusCode)
+		t.Error("Status Code should be", http.StatusBadRequest, " Got", response.StatusCode)
 	}
 
 	fmt.Println("-- TestHandleBadRequest end --\n")
+}
+
+func TestHandleResourceRoute(t *testing.T) {
+	fmt.Println("-- TestHandleResourceRoute start --")
+
+	// Adding the route definition
+	r.Handle("/user/:uid", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
+		fmt.Println("Rquest made to '/user/:id'")
+		params := rq.URL.Query()
+
+		uid := params.Get(":uid")
+		fmt.Println("Uid = ", uid)
+
+		uid_int, err := strconv.Atoi(uid)
+		if err != nil {
+			fmt.Println("[ERROR] :uid not an integer value!")
+			t.Error(err)
+		}
+
+		if uid_int != 1234 {
+			fmt.Println("Expected uid: 1234 Got ", uid_int)
+			t.Error("Expected uid: 1234 Got ", uid_int)
+		}
+
+		return nil
+	}, []Interceptor{})
+
+	response, err := get("/user/1234")
+	if err != nil {
+		fmt.Println(err)
+		t.Error(err)
+	}
+
+	defer response.Body.Close()
+	body, _ := ioutil.ReadAll(response.Body)
+	fmt.Println(string(body))
+	fmt.Println("StatusCode:", response.StatusCode)
+
+	if response.StatusCode != http.StatusOK {
+		t.Error("Status Code should be", http.StatusOK, " Got", response.StatusCode)
+	}
+
+	fmt.Println("-- TestHandleResourceRoute end --")
 }
