@@ -9,7 +9,7 @@ Simple handler registration for the route /api/product
 	import("github.com/asvins/router/logger")
 	...
 	r := router.NewRouter()
-	r.AddRoute("/api/product", router.GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/api/product", router.GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/api/users'")
 	})
 	...
@@ -20,17 +20,53 @@ Simple handler registration for the route /api/product
 	import(
 		routerErrors "github.com/asvins/router/errors"
 	)	
-	r.Handle("/handler/unauthorized", GET, func(w http.ResponseWriter, apiRouter *http.Request) routerErrors.Http {
+	r.Handle("/handler/unauthorized", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
 		return routerErrors.Unauthorized("You shall not pass")
 	}, []Interceptor{})
 ```
 #### IMPORTANT: DO NOT WRITE INTO THE RESPONSE WRITER IF USE USE r.Handle()
 
+### Simple route with <:param> notation
+```go
+	import(
+		routerErrors "github.com/asvins/router/errors"
+	)	
+	r.Handle("/user/:uid/details/:did", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
+		params := rq.URL.Query()
+		uid := params.Get("uid") // will return uid as stirng
+		did := params.Get("did") // will return did as string
+
+		// be awsome
+
+		return nil
+	}, []Interceptor{})
+
+```
+
+### Simple route with <:param> notation and query string
+```go
+	import(
+		routerErrors "github.com/asvins/router/errors"
+	)	
+	
+	r.Handle("/user/:uid/appointment?aid=1234", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
+		params := rq.URL.Query()
+		uid := params.Get("uid") // will return uid as stirng
+		aid := params.Get("aid") // will return did as string
+
+		// be awsome
+
+		return nil
+	}, []Interceptor{})
+
+```
+
+
 ### Route with specific Interceptor
 The route /api/user will be intercepter by the logger interceptor
 ```go
 	...
-	r.AddRoute("/api/user", router.GET, func(w http.ResponseWriter, apiRouter *http.Request) {
+	r.AddRoute("/api/user", router.GET, func(w http.ResponseWriter, rq *http.Request) {
 		fmt.Fprint(w, "Request made to '/'")
 	}, logger.NewLogger())
 	...
@@ -67,4 +103,3 @@ func (l Logger) Intercept(rw http.ResponseWriter, r *http.Request) error {
 }
 ```
 
-The currently developed interceptors can be found at github.com/asvins/router
