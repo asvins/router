@@ -203,7 +203,7 @@ func TestBaseRouteInterceptor(t *testing.T) {
 }
 
 func TestBaseAndSpecificInterceptor(t *testing.T) {
-	fmt.Println("-- TestBaseRouteInterceptor start --")
+	fmt.Println("-- TestBaseAndSpecificInterceptor start --")
 	response, err := get("/api/users/name")
 	if err != nil {
 		fmt.Println(err)
@@ -226,6 +226,7 @@ func TestBaseAndSpecificInterceptor(t *testing.T) {
 	if interceptorCount != (apiInterceptorCount + apiUsersNameInterceptorCount) {
 		t.Error("Not all interceptors called for '/api/users/name'")
 	}
+
 	fmt.Println("-- TestBaseRouteInterceptor end --\n")
 }
 
