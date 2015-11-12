@@ -505,3 +505,22 @@ func TestHandleResouceWithQueryString2(t *testing.T) {
 
 	fmt.Println("-- TestHandleResouceWithQueryString2 end --\n")
 }
+
+func TestAddingMissConstructedRoute(t *testing.T) {
+	fmt.Println("-- TestAddingMissConstructedRoute start --\n")
+
+	defer func() {
+		if recv := recover(); recv == nil {
+			t.Error("[ERROR] Should have panicd because function tried to add a misscontructed route")
+		} else {
+			fmt.Println("-- TestAddingMissConstructedRoute end --\n")
+		}
+	}()
+
+	// Trying to add route that do not begins with '/'
+	fmt.Println("[INFO] Should print error from router.Handle for trying to add route that doesn't begin with '/'")
+	r.Handle("user/:uid/details", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
+		fmt.Println("Rquest made to 'user/:uid/details'")
+		return nil
+	}, []Interceptor{})
+}

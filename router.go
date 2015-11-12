@@ -115,6 +115,11 @@ func (r *Router) AddRoute(pattern string, method string, handler http.HandlerFun
 
 //doAddRoute will add the specific route using method and string
 func (r *Router) doAddRoute(method string, pattern string, handler Handler, interceptors []Interceptor) {
+	if !strings.HasPrefix(pattern, "/") {
+		fmt.Println("[ERROR] pattern should ALWAYS begin with '/'")
+		panic("[ERROR] pattern should ALWAYS begin with '/'")
+	}
+
 	URISections := strings.Split(pattern, "/")
 
 	j := 0
@@ -134,7 +139,7 @@ func (r *Router) doAddRoute(method string, pattern string, handler Handler, inte
 
 	if err != nil {
 		fmt.Println("[ERROR] Unable to add requested route: ", err)
-		return
+		panic(err)
 	}
 
 	route := &route{}
@@ -201,7 +206,6 @@ func writeError(err errors.Http, w http.ResponseWriter) bool {
 func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	var err errors.Http
 	requestURL := rq.URL.Path
-	found_match := false
 
 	for _, route := range r.routes {
 
@@ -254,13 +258,6 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 			return
 		}
 
-		found_match = true
-		// if got to the final, break from for loop
-		break
-	}
-
-	// if found match route, it has already executed it.. so we have just to return
-	if found_match {
 		return
 	}
 
