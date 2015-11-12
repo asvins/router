@@ -1,3 +1,6 @@
+### Build Status
+![Build Status](https://travis-ci.org/asvins/router.svg?branch=master)
+
 # router
 ### A simple golang HTTP router
 
