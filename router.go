@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -35,13 +36,13 @@ const (
 
 //Router struct containing the routes and base interceptors
 type Router struct {
-	routes           map[string]*route
+	routes           []*route
 	baseInterceptors map[string][]Interceptor
 }
 
 //NewRouter = constructor for router
 func NewRouter() *Router {
-	return &Router{routes: make(map[string]*route), baseInterceptors: make(map[string][]Interceptor)}
+	return &Router{baseInterceptors: make(map[string][]Interceptor)}
 }
 
 //Interceptor is an inteface that objects that want to be used as interceptor for requests must implement.
@@ -54,8 +55,9 @@ type Handler func(http.ResponseWriter, *http.Request) errors.Http
 
 // route struct has the route path, method handler e possible specific interceptors
 type route struct {
-	path         string
 	method       string
+	regex        *regexp.Regexp
+	reqParams    map[int]string
 	handler      Handler
 	interceptors []Interceptor
 }
@@ -89,42 +91,65 @@ func (r *Router) AddBaseInterceptor(path string, interceptor Interceptor) {
 // Handle adds a new route with  router.Handler as handler
 // If you choose to use this method, DON'T WRITE INTO THE RESPONSE WRITER IF YOU RETURN AN ERROR
 //	if you Return a router.error.Http, the router will automatically return the error as a json on the response
-func (r *Router) Handle(path string, method string, handler Handler, interceptors []Interceptor) {
+func (r *Router) Handle(pattern string, method string, handler Handler, interceptors []Interceptor) {
 	switch method {
 	case GET:
-		r.doAddRoute(GET, path, handler, interceptors)
+		r.doAddRoute(GET, pattern, handler, interceptors)
 		break
 	case PUT:
-		r.doAddRoute(PUT, path, handler, interceptors)
+		r.doAddRoute(PUT, pattern, handler, interceptors)
 		break
 	case DELETE:
-		r.doAddRoute(DELETE, path, handler, interceptors)
+		r.doAddRoute(DELETE, pattern, handler, interceptors)
 		break
 	case POST:
-		r.doAddRoute(POST, path, handler, interceptors)
+		r.doAddRoute(POST, pattern, handler, interceptors)
 		break
 	}
 }
 
 //AddRoute adds a new route using path method, handler and a variadic number of interceptors
-func (r *Router) AddRoute(path string, method string, handler http.HandlerFunc, interceptors ...Interceptor) {
-	r.Handle(path, method, wrap(handler), interceptors)
+func (r *Router) AddRoute(pattern string, method string, handler http.HandlerFunc, interceptors ...Interceptor) {
+	r.Handle(pattern, method, wrap(handler), interceptors)
 }
 
 //doAddRoute will add the specific route using method and string
-func (r *Router) doAddRoute(method string, path string, handler Handler, interceptors []Interceptor) {
-	if r.routes[path+method] != nil {
-		fmt.Printf("route with path '%s' with method '%s' already added. The second one will be ignored", path, method)
-		return
+func (r *Router) doAddRoute(method string, pattern string, handler Handler, interceptors []Interceptor) {
+	if !strings.HasPrefix(pattern, "/") {
+		fmt.Println("[ERROR] pattern should ALWAYS begin with '/'")
+		panic("[ERROR] pattern should ALWAYS begin with '/'")
+	}
+
+	URISections := strings.Split(pattern, "/")
+
+	j := 0
+	reqParams := make(map[int]string)
+
+	for i, section := range URISections {
+		if strings.HasPrefix(section, ":") {
+			// anything that has at least one char and it's not a '/'
+			reqParams[j] = section
+			URISections[i] = "([^/]+)"
+			j++
+		}
+	}
+
+	pattern = strings.Join(URISections, "/")
+	reg, err := regexp.Compile(pattern)
+
+	if err != nil {
+		fmt.Println("[ERROR] Unable to add requested route: ", err)
+		panic(err)
 	}
 
 	route := &route{}
-	route.path = path
 	route.method = method
+	route.regex = reg
+	route.reqParams = reqParams
 	route.handler = handler
 	route.interceptors = interceptors
 
-	r.routes[path+method] = route
+	r.routes = append(r.routes, route)
 }
 
 // executeBaseInterceptors executes all interceptors in a given path.
@@ -180,20 +205,54 @@ func writeError(err errors.Http, w http.ResponseWriter) bool {
 //	If any of the interceptors returns an error, the interceptor chain will be stopped immediately
 func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 	var err errors.Http
+	requestURL := rq.URL.Path
 
-	route := r.routes[rq.URL.Path+rq.Method]
-	if route != nil {
+	for _, route := range r.routes {
+
+		// check method
+		if route.method != rq.Method {
+			continue
+		}
+
+		// check if regex match the request URL
+		if !route.regex.MatchString(requestURL) {
+			continue
+		}
+
+		// Example of FindStringSubmatch return:
+		//	regex:	/api/user/([^/]+)/details/([^/]+)
+		//	entered url:	/api/user/1234/details/12
+		//	return:	[/api/user/1234/details/12 1234 12]
+		matches := route.regex.FindStringSubmatch(requestURL)
+
+		// this if is needed otherwise any url like '/api/users' would match with '/' if a route like that is registered
+		if matches[0] != requestURL {
+			continue
+		}
+
+		// put the params on url values to be able to access it from interceptors and handlers
+		if len(route.reqParams) > 0 {
+			values := rq.URL.Query()
+			for i, match := range matches[1:] {
+				values.Add(route.reqParams[i][1:], match)
+			}
+
+			rq.URL.RawQuery = url.Values(values).Encode()
+		}
+
+		// base interceptor execution
 		err = r.executeBaseInterceptors(rq.URL.Path, w, rq) //base path interceptors
 		if writeError(err, w) {
 			return
 		}
 
+		// router interceptors execution
 		err = route.executeInterceptors(w, rq) // route specific interceptors
-
 		if writeError(err, w) {
 			return
 		}
 
+		// handler execution
 		err = route.handler(w, rq) // route handler
 		if writeError(err, w) {
 			return
@@ -202,7 +261,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 		return
 	}
 
-	// think again about static files...
+	// otherwise, serve static files? =s
 	match, matchErr := regexp.MatchString(servingFileRegex, rq.URL.Path)
 
 	if matchErr != nil {
