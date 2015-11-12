@@ -230,10 +230,10 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, rq *http.Request) {
 		if len(route.reqParams) > 0 {
 			values := rq.URL.Query()
 			for i, match := range matches[1:] {
-				values.Add(route.reqParams[i], match)
+				values.Add(route.reqParams[i][1:], match)
 			}
 
-			rq.URL.RawQuery = url.Values(values).Encode() + "&" + rq.URL.RawQuery
+			rq.URL.RawQuery = url.Values(values).Encode()
 		}
 
 		// base interceptor execution

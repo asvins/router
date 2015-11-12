@@ -312,7 +312,7 @@ func TestHandleResourceRoute(t *testing.T) {
 		fmt.Println("Rquest made to '/user/:uid'")
 		params := rq.URL.Query()
 
-		uid := params.Get(":uid")
+		uid := params.Get("uid")
 		fmt.Println("Uid = ", uid)
 
 		uid_int, err := strconv.Atoi(uid)
@@ -347,18 +347,20 @@ func TestHandleResourceRoute(t *testing.T) {
 	fmt.Println("-- TestHandleResourceRoute end --\n")
 }
 
-func TestHandleResourceRoute2(t *testing.T) {
-	fmt.Println("-- TestHandleResourceRoute2 start --")
+func TestHandleResouceWithQueryString(t *testing.T) {
+	fmt.Println("-- TestHandleResouceWithQueryString start --")
 
 	// Adding the route definition
 	r.Handle("/user/:uid/details/:did", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
 		fmt.Println("Rquest made to '/user/:uid/details/:did'")
 		params := rq.URL.Query()
 
-		uid := params.Get(":uid")
+		uid := params.Get("uid")
 		fmt.Println("Uid = ", uid)
-		did := params.Get(":did")
+		did := params.Get("did")
 		fmt.Println("Did = ", did)
+		cid := params.Get("cid")
+		fmt.Println("Cid = ", cid)
 
 		uid_int, err := strconv.Atoi(uid)
 		if err != nil {
@@ -382,10 +384,21 @@ func TestHandleResourceRoute2(t *testing.T) {
 			t.Error("Expected uid: 5678 Got ", did_int)
 		}
 
+		cid_int, err := strconv.Atoi(cid)
+		if err != nil {
+			fmt.Println("[ERROR] :cid not an integer value!")
+			t.Error(err)
+		}
+
+		if cid_int != 9012 {
+			fmt.Println("Expected cid: 9012 Got ", cid_int)
+			t.Error("Expected uid: 9012 Got ", cid_int)
+		}
+
 		return nil
 	}, []Interceptor{})
 
-	response, err := get("/user/1234/details/5678")
+	response, err := get("/user/1234/details/5678?cid=9012")
 	if err != nil {
 		fmt.Println(err)
 		t.Error(err)
@@ -400,7 +413,7 @@ func TestHandleResourceRoute2(t *testing.T) {
 		t.Error("Status Code should be", http.StatusOK, " Got", response.StatusCode)
 	}
 
-	fmt.Println("-- TestHandleResourceRoute2 end --\n")
+	fmt.Println("-- TestHandleResouceWithQueryString end --\n")
 }
 
 func TestHandleResourceRouteNotInserted(t *testing.T) {
@@ -424,16 +437,20 @@ func TestHandleResourceRouteNotInserted(t *testing.T) {
 	fmt.Println("-- TestHandleResourceRouteNotInserted end --\n")
 }
 
-func TestHandleResourceRoute3(t *testing.T) {
-	fmt.Println("-- TestHandleResourceRoute3 start --")
+func TestHandleResouceWithQueryString2(t *testing.T) {
+	fmt.Println("-- TestHandleResouceWithQueryString2 start --")
 
 	// Adding the route definition
 	r.Handle("/user/:uid/details", GET, func(w http.ResponseWriter, rq *http.Request) routerErrors.Http {
 		fmt.Println("Rquest made to '/user/:uid/details'")
 		params := rq.URL.Query()
 
-		uid := params.Get(":uid")
+		uid := params.Get("uid")
 		fmt.Println("Uid = ", uid)
+		did := params.Get("did")
+		fmt.Println("Did = ", did)
+		cid := params.Get("cid")
+		fmt.Println("Cid = ", cid)
 
 		uid_int, err := strconv.Atoi(uid)
 		if err != nil {
@@ -446,10 +463,32 @@ func TestHandleResourceRoute3(t *testing.T) {
 			t.Error("Expected uid: 1234 Got ", uid_int)
 		}
 
+		did_int, err := strconv.Atoi(did)
+		if err != nil {
+			fmt.Println("[ERROR] :did not an integer value!")
+			t.Error(err)
+		}
+
+		if did_int != 5678 {
+			fmt.Println("Expected uid: 5678 Got ", did_int)
+			t.Error("Expected uid: 5678 Got ", did_int)
+		}
+
+		cid_int, err := strconv.Atoi(cid)
+		if err != nil {
+			fmt.Println("[ERROR] :cid not an integer value!")
+			t.Error(err)
+		}
+
+		if cid_int != 9012 {
+			fmt.Println("Expected cid: 9012 Got ", cid_int)
+			t.Error("Expected cid: 9012 Got ", cid_int)
+		}
+
 		return nil
 	}, []Interceptor{})
 
-	response, err := get("/user/1234/details")
+	response, err := get("/user/1234/details?did=5678&cid=9012")
 	if err != nil {
 		fmt.Println(err)
 		t.Error(err)
@@ -464,5 +503,5 @@ func TestHandleResourceRoute3(t *testing.T) {
 		t.Error("Status Code should be", http.StatusOK, " Got", response.StatusCode)
 	}
 
-	fmt.Println("-- TestHandleResourceRoute3 end --\n")
+	fmt.Println("-- TestHandleResouceWithQueryString2 end --\n")
 }
