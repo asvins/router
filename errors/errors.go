@@ -77,3 +77,26 @@ func (e NotFoundStruct) Message() string {
 func (e NotFoundStruct) Code() int {
 	return http.StatusNotFound
 }
+
+/*
+*	HTTP status InternalServerError
+ */
+// InternalServerErrorStruct http error
+type InternalServerErrorStruct struct {
+	Msg string `json:"message"`
+}
+
+// InternalServerError returns a newly allocated InternalServerErrorStruct
+func InternalServerError(message string) InternalServerErrorStruct {
+	return InternalServerErrorStruct{message}
+}
+
+// Message - needed to implement HttpErrors interface
+func (e InternalServerErrorStruct) Message() string {
+	return e.Msg
+}
+
+// Code needed to implement Http interface
+func (e InternalServerErrorStruct) Code() int {
+	return http.StatusInternalServerError
+}
